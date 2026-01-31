@@ -1,4 +1,4 @@
-# 🐍 NEON SNAKE
+# 🐍 Nxi SNAKE
 
 A premium, high-performance web-based Snake game with a sleek neon aesthetic. Designed for seamless gameplay with full state persistence and deep customizability.
 
