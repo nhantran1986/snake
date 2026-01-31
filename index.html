@@ -26,6 +26,14 @@
                     <span class="label">BEST</span>
                     <span id="high-score" class="value">0000</span>
                 </div>
+                <div class="score-box">
+                    <span class="label">TIME</span>
+                    <span id="timer" class="value">00:00</span>
+                </div>
+                <div class="score-box">
+                    <span class="label">B-TIME</span>
+                    <span id="best-time" class="value">00:00</span>
+                </div>
             </div>
         </header>
 
@@ -52,6 +60,15 @@
                     <p>Final Score: <span id="final-score">0</span></p>
                     <button id="restart-btn" class="primary-btn">REBOOT</button>
                 </div>
+
+                <div id="confirm-screen" class="screen hidden">
+                    <h2>INITIATE REBOOT?</h2>
+                    <p>This will terminate the current sequence and reset all progress.</p>
+                    <div class="modal-actions">
+                        <button id="confirm-yes-btn" class="primary-btn danger-btn">CONFIRM</button>
+                        <button id="confirm-no-btn" class="secondary-btn">ABORT</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -68,10 +85,55 @@
                     </div>
                 </div>
                 <div class="setting-group">
-                    <label>CONTROLS</label>
-                    <button id="remap-btn" class="secondary-btn">RECONFIGURE KEYS</button>
+                    <label>BOARD SIZE</label>
+                    <div class="mode-btns">
+                        <button class="mode-btn" data-mode="easy">EASY</button>
+                        <button class="mode-btn" data-mode="medium">MEDIUM</button>
+                        <button class="mode-btn" data-mode="hard">HARD</button>
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <label>ACTIONS</label>
+                    <div class="action-btns">
+                        <button id="remap-btn" class="secondary-btn">RECONFIGURE KEYS</button>
+                        <button id="help-btn" class="secondary-btn">HELP</button>
+                    </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="help-modal-overlay" class="modal-overlay hidden">
+        <div class="modal help-modal">
+            <h3>LOGS & INSTRUCTIONS</h3>
+            <div class="help-content">
+                <section>
+                    <h4>OBJECTIVE</h4>
+                    <p>Maneuver the neon serpent to consume light cores. Each core increases your length and score.
+                        Transcend dimensions by surviving as long as possible.</p>
+                </section>
+                <section>
+                    <h4>CONTROLS</h4>
+                    <p>By default, use your keyboard's <strong>Arrow Keys</strong> to move and <strong>P</strong> to
+                        pause. You can reconfigure these in the settings.</p>
+                </section>
+                <section>
+                    <h4>SHORTCUTS</h4>
+                    <ul>
+                        <li><strong>1 - 5</strong>: Change speed intensity</li>
+                        <li><strong>R</strong>: Initiate system reboot (Restart)</li>
+                        <li><strong>Enter / Y</strong>: Confirm reboot</li>
+                        <li><strong>Esc / N</strong>: Abort reboot</li>
+                    </ul>
+                </section>
+                <section>
+                    <h4>FEATURES</h4>
+                    <p>Your <strong>High Score</strong>, <strong>Best Time</strong>, and <strong>Custom Keys</strong>
+                        are saved between sessions. Use the Auto-Pause function after a refresh to regain focus.</p>
+                </section>
+            </div>
+            <button id="close-help-btn" class="primary-btn">ACKNOWLEDGE</button>
         </div>
     </div>
 
@@ -100,6 +162,30 @@
                 <div class="key-item">
                     <span>PAUSE</span>
                     <button class="key-map-btn" data-dir="pause">p</button>
+                </div>
+                <div class="key-item">
+                    <span>REBOOT</span>
+                    <button class="key-map-btn" data-dir="reboot">r</button>
+                </div>
+                <div class="key-item">
+                    <span>LEVEL 1</span>
+                    <button class="key-map-btn" data-dir="lvl1">1</button>
+                </div>
+                <div class="key-item">
+                    <span>LEVEL 2</span>
+                    <button class="key-map-btn" data-dir="lvl2">2</button>
+                </div>
+                <div class="key-item">
+                    <span>LEVEL 3</span>
+                    <button class="key-map-btn" data-dir="lvl3">3</button>
+                </div>
+                <div class="key-item">
+                    <span>LEVEL 4</span>
+                    <button class="key-map-btn" data-dir="lvl4">4</button>
+                </div>
+                <div class="key-item">
+                    <span>LEVEL 5</span>
+                    <button class="key-map-btn" data-dir="lvl5">5</button>
                 </div>
             </div>
             <div class="modal-actions">

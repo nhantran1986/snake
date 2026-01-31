@@ -11,7 +11,15 @@ const startBtn = document.getElementById('start-btn');
 const resumeBtn = document.getElementById('resume-btn');
 const restartBtn = document.getElementById('restart-btn');
 const remapBtn = document.getElementById('remap-btn');
+const helpBtn = document.getElementById('help-btn');
 const speedBtns = document.querySelectorAll('.speed-btn');
+const modeBtns = document.querySelectorAll('.mode-btn');
+
+const closeHelpBtn = document.getElementById('close-help-btn');
+const helpModalOverlay = document.getElementById('help-modal-overlay');
+
+const confirmYesBtn = document.getElementById('confirm-yes-btn');
+const confirmNoBtn = document.getElementById('confirm-no-btn');
 
 const overlay = document.getElementById('overlay');
 const startScreen = document.getElementById('start-screen');
@@ -43,10 +51,23 @@ let direction = 'right';
 let nextDirection = 'right';
 let score = 0;
 let highScore = localStorage.getItem('snake-high-score') || 0;
+let gameTime = 0; // In seconds
+let bestTime = localStorage.getItem('snake-best-time') || 0;
 let gameLoop = null;
+let timerLoop = null;
 let isPaused = false;
 let gameActive = false;
-let speedLevel = 1;
+let speedLevel = parseInt(localStorage.getItem('snake-speed')) || 1;
+let difficultyMode = localStorage.getItem('snake-mode') || 'medium';
+
+const MODES = {
+    easy: { size: 15, pixels: 300 },
+    medium: { size: 20, pixels: 400 },
+    hard: { size: 30, pixels: 600 }
+};
+
+const timerEl = document.getElementById('timer');
+const bestTimeEl = document.getElementById('best-time');
 
 // Default Controls
 let keyMap = {
@@ -54,34 +75,190 @@ let keyMap = {
     down: 'ArrowDown',
     left: 'ArrowLeft',
     right: 'ArrowRight',
-    pause: 'p'
+    pause: 'p',
+    reboot: 'r',
+    lvl1: '1',
+    lvl2: '2',
+    lvl3: '3',
+    lvl4: '4',
+    lvl5: '5'
 };
 
-// Load saved controls if any
+// Load saved controls
 const savedKeys = localStorage.getItem('snake-keys');
 if (savedKeys) {
-    try {
-        keyMap = JSON.parse(savedKeys);
-        updateUIWithKeys();
-    } catch (e) {
-        console.error("Failed to load keys", e);
-    }
+    try { keyMap = JSON.parse(savedKeys); } catch (e) { }
 }
 
 highScoreEl.textContent = String(highScore).padStart(4, '0');
+bestTimeEl.textContent = formatTime(bestTime);
+
+// Update Speed UI to match loaded speed level
+speedBtns.forEach(btn => {
+    if (parseInt(btn.dataset.level) === speedLevel) {
+        btn.classList.add('active');
+    } else {
+        btn.classList.remove('active');
+    }
+});
 
 /**
  * Initialization & Setup
  */
 function initCanvas() {
-    // Set internal resolution
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = 400; // Fixed resolution for logic
-    canvas.height = 400;
+    const config = MODES[difficultyMode];
+    canvas.width = config.pixels;
+    canvas.height = config.pixels;
+
+    // Update active UI
+    modeBtns.forEach(btn => {
+        if (btn.dataset.mode === difficultyMode) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
 }
 
 window.addEventListener('resize', initCanvas);
 initCanvas();
+
+/**
+ * Persistence Logic
+ */
+function saveCurrentState() {
+    if (!gameActive) {
+        localStorage.removeItem('snake-active-state');
+        return;
+    }
+    const state = {
+        snake,
+        food,
+        direction,
+        nextDirection,
+        score,
+        gameTime,
+        isPaused,
+        speedLevel,
+        difficultyMode
+    };
+    localStorage.setItem('snake-active-state', JSON.stringify(state));
+}
+
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+function updateTimerDisplay() {
+    timerEl.textContent = formatTime(gameTime);
+    if (gameTime > bestTime) {
+        bestTime = gameTime;
+        bestTimeEl.textContent = formatTime(bestTime);
+        localStorage.setItem('snake-best-time', bestTime);
+    }
+}
+
+function startTimer() {
+    if (timerLoop) clearInterval(timerLoop);
+    timerLoop = setInterval(() => {
+        if (!isPaused && gameActive) {
+            gameTime++;
+            updateTimerDisplay();
+            saveCurrentState();
+        }
+    }, 1000);
+}
+
+function loadState() {
+    const savedState = localStorage.getItem('snake-active-state');
+    if (!savedState) return false;
+
+    try {
+        const state = JSON.parse(savedState);
+        snake = state.snake;
+        food = state.food;
+        direction = state.direction;
+        nextDirection = state.nextDirection;
+        score = state.score;
+        gameTime = state.gameTime || 0;
+        difficultyMode = state.difficultyMode || localStorage.getItem('snake-mode') || 'medium';
+
+        initCanvas(); // Apply correctly sized board
+        updateScore();
+        updateTimerDisplay();
+        gameActive = true;
+        isPaused = true; // Force pause on refresh
+        draw(); // Show current position immediately
+        saveCurrentState(); // Persist the pause status
+
+        showScreen('pause-screen');
+        overlay.classList.remove('hidden');
+
+        // Ensure timer is ready but not counting until resume
+        startTimer();
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+function startGame() {
+    initGame();
+    hideScreens();
+    overlay.classList.add('hidden');
+    startLoop();
+    startTimer();
+}
+
+function startLoop() {
+    if (gameLoop) clearInterval(gameLoop);
+    const interval = 175 - (speedLevel * 25);
+    gameLoop = setInterval(step, interval);
+}
+
+function gameOver() {
+    gameActive = false;
+    if (gameLoop) clearInterval(gameLoop);
+    if (timerLoop) clearInterval(timerLoop);
+    localStorage.removeItem('snake-active-state');
+    finalScoreEl.textContent = score;
+    showScreen('game-over-screen');
+    overlay.classList.remove('hidden');
+}
+
+function requestConfirmation(onConfirmed) {
+    const wasPaused = isPaused;
+    isPaused = true;
+    if (gameLoop) clearInterval(gameLoop);
+
+    showScreen('confirm-screen');
+    overlay.classList.remove('hidden');
+
+    confirmYesBtn.onclick = () => {
+        onConfirmed();
+    };
+
+    confirmNoBtn.onclick = () => {
+        isPaused = wasPaused;
+        if (!isPaused) {
+            startLoop();
+            hideScreens();
+            overlay.classList.add('hidden');
+        } else {
+            showScreen('pause-screen');
+        }
+    };
+}
+
+function requestReboot() {
+    if (!gameActive || !document.getElementById('game-over-screen').classList.contains('hidden')) {
+        startGame();
+        return;
+    }
+    requestConfirmation(() => startGame());
+}
 
 /**
  * Game Logic Functions
@@ -95,7 +272,9 @@ function initGame() {
     direction = 'right';
     nextDirection = 'right';
     score = 0;
+    gameTime = 0;
     updateScore();
+    updateTimerDisplay();
     spawnFood();
     gameActive = true;
     isPaused = false;
@@ -150,11 +329,11 @@ function step() {
         score += 10 * speedLevel;
         updateScore();
         spawnFood();
-        // Visual shake or punch effect could go here
     } else {
         snake.pop();
     }
 
+    saveCurrentState();
     draw();
 }
 
@@ -221,32 +400,43 @@ function updateScore() {
     }
 }
 
-function startGame() {
-    initGame();
-    hideScreens();
-    overlay.classList.add('hidden');
+function setSpeed(level) {
+    if (level < 1 || level > 5) return;
+    speedLevel = level;
+    localStorage.setItem('snake-speed', speedLevel);
 
-    // Set interval based on speed level
-    // Level 1: 150ms, Level 5: 50ms
-    const interval = 175 - (speedLevel * 25);
-    gameLoop = setInterval(step, interval);
+    // Update UI
+    speedBtns.forEach(btn => {
+        if (parseInt(btn.dataset.level) === speedLevel) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+
+    // If game is running, restart loop with new speed
+    if (gameActive && !isPaused) {
+        startLoop();
+    }
+    saveCurrentState();
 }
 
-function gameOver() {
-    gameActive = false;
-    clearInterval(gameLoop);
-    finalScoreEl.textContent = score;
-    showScreen('game-over-screen');
-    overlay.classList.remove('hidden');
-}
+speedBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        setSpeed(parseInt(btn.dataset.level));
+    });
+});
 
 function togglePause() {
     if (!gameActive) return;
     isPaused = !isPaused;
+    saveCurrentState();
     if (isPaused) {
+        if (gameLoop) clearInterval(gameLoop);
         showScreen('pause-screen');
         overlay.classList.remove('hidden');
     } else {
+        startLoop();
         hideScreens();
         overlay.classList.add('hidden');
     }
@@ -274,10 +464,44 @@ window.addEventListener('keydown', (e) => {
         e.preventDefault();
     }
 
+    // Handle key binding if modal is active
+    if (currentlyBinding) {
+        tempKeyMap[currentlyBinding] = e.key;
+        updateModalUI();
+        currentlyBinding = null;
+        keyListenerOverlay.classList.add('hidden');
+        return;
+    }
+
     if (e.key === 'Escape' || e.key === keyMap.pause) {
         togglePause();
         return;
     }
+
+    // reboot shortcut
+    if (e.key.toLowerCase() === keyMap.reboot.toLowerCase()) {
+        requestReboot();
+        return;
+    }
+
+    // Confirmation screen shortcuts
+    if (!document.getElementById('confirm-screen').classList.contains('hidden')) {
+        if (e.key === 'Enter' || e.key.toLowerCase() === 'y') {
+            startGame();
+            return;
+        }
+        if (e.key === 'Escape' || e.key.toLowerCase() === 'n') {
+            confirmNoBtn.click();
+            return;
+        }
+    }
+
+    // Level shortcuts
+    if (e.key === keyMap.lvl1) { setSpeed(1); return; }
+    if (e.key === keyMap.lvl2) { setSpeed(2); return; }
+    if (e.key === keyMap.lvl3) { setSpeed(3); return; }
+    if (e.key === keyMap.lvl4) { setSpeed(4); return; }
+    if (e.key === keyMap.lvl5) { setSpeed(5); return; }
 
     if (!gameActive || isPaused) return;
 
@@ -289,22 +513,7 @@ window.addEventListener('keydown', (e) => {
 
 startBtn.addEventListener('click', startGame);
 resumeBtn.addEventListener('click', togglePause);
-restartBtn.addEventListener('click', startGame);
-
-speedBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-        speedLevel = parseInt(btn.dataset.level);
-        speedBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-
-        // If game is running, restart loop with new speed
-        if (gameActive && !isPaused) {
-            clearInterval(gameLoop);
-            const interval = 175 - (speedLevel * 25);
-            gameLoop = setInterval(step, interval);
-        }
-    });
-});
+restartBtn.addEventListener('click', requestReboot);
 
 /**
  * Control Configuration Logic
@@ -346,16 +555,6 @@ keyMapBtns.forEach(btn => {
     });
 });
 
-window.addEventListener('keydown', (e) => {
-    if (currentlyBinding) {
-        e.preventDefault();
-        tempKeyMap[currentlyBinding] = e.key;
-        updateModalUI();
-        currentlyBinding = null;
-        keyListenerOverlay.classList.add('hidden');
-    }
-});
-
 saveKeysBtn.addEventListener('click', () => {
     keyMap = { ...tempKeyMap };
     localStorage.setItem('snake-keys', JSON.stringify(keyMap));
@@ -367,6 +566,38 @@ cancelKeysBtn.addEventListener('click', () => {
     modalOverlay.classList.add('hidden');
 });
 
-// Initial draw to show something
+modeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        const setMode = () => {
+            difficultyMode = btn.dataset.mode;
+            localStorage.setItem('snake-mode', difficultyMode);
+            initCanvas();
+            startGame();
+        };
+
+        if (gameActive && document.getElementById('game-over-screen').classList.contains('hidden')) {
+            requestConfirmation(setMode);
+        } else {
+            difficultyMode = btn.dataset.mode;
+            localStorage.setItem('snake-mode', difficultyMode);
+            initCanvas();
+            initGame();
+            draw();
+            showScreen('start-screen');
+        }
+    });
+});
+
+helpBtn.addEventListener('click', () => {
+    helpModalOverlay.classList.remove('hidden');
+});
+
+closeHelpBtn.addEventListener('click', () => {
+    helpModalOverlay.classList.add('hidden');
+});
+
+// Initial draw and load state
 draw();
 updateUIWithKeys();
+loadState();
+
